@@ -1,49 +1,44 @@
-# Installing the Plugins
-Perhaps the easiest method of installing these plugins is by utlizing the "Filer" plugin in pfSense. Simply type the entire file name (i.e. "/usr/local/bin/plugin_name") and paste the code into the window. Make sure to set the permissions to be "0755", as they default to "0644" which is NOT executable!
+# 🚀 Guia de Instalação e Uso dos Plugins
 
-# telegraf_pfifgw.php
+A maneira mais prática de instalar esses scripts no pfSense é através do pacote **Filer**.
 
-*Replaces telegraf_gateways.py scripts (2.7 & 3.7)*
+Ao cadastrar um novo arquivo, especifique o caminho completo (ex: `/usr/local/bin/nome_do_plugin`) e cole o código correspondente.
 
-*Replaces telegraf_pfinterface.php and telegraf_gateways.php*
+> [!IMPORTANT]
+> **Permissões de Execução:** Defina obrigatoriamente as permissões como **`0755`**. Por padrão, o sistema utiliza `0644`, que **NÃO** permite a execução dos scripts pelo Telegraf.
 
-This single script collects information for Interfaces and gateways.
+---
 
-**Interfaces:**
-* Interface name
-* IP4 address
-* IP4 subnet
-* IP6 address
-* IP6 subnet
-* MAC address
-* Friendly name
-* Status (Online/Offline/Etc.)
+# 🛠️ telegraf_pfifgw.php (Script Principal)
 
-**Gateways:**
-* Interface name
-* Monitor IP
-* Source IP
-* Default gw (True/False)
-* GW Description
-* Delay
-* Stddev
-* Loss (%)
-* Status (Online/Offline/etc.)
-* Substatus (None/Packetloss/Latency/Etc.)
+*Este script consolida e substitui as versões antigas em Python (`telegraf_gateways.py`) e os scripts individuais de interface e gateway.*
 
-This has been modified from the original python version to a native PHP script. The new script calls the builtin "return_gateways_status_text" function from "/etc/inc/gwlb.inc". In addition to the loss, rtt, and rttsd included in the original plugin, the new version will also return the gateway IP, monitored IP, status, and substatus of the gateway. This eliminates the guess work of whether or not pfSense has marked this gateway as down. 
+Este é o motor de coleta do dashboard, responsável por extrair dados em tempo real diretamente das bibliotecas nativas do pfSense.
 
-# telegraf_unbound_lite.sh
-#### This plugin is not in use on my system but it's still worth documenting.
-If you only care about some of the unbound metrics and don't want to waste space collecting all the unwanted unbound metrics, here's a plugin for you.
+### 📊 Métricas de Interfaces:
 
-# telegraf_netifinfo_plugin
-#### This plugin is not in use on my system but it's still worth documenting.
-I found a plugin to get IP, MAC, IF Name and Status. [On this thread](https://github.com/influxdata/telegraf/issues/3756#issuecomment-485606025 "On this thread") a user posts some go code for a telegraf plugin. I fired up a FreeBSD 11 ami on amazon, installed go and compiled a binary version of the code. It's worked as expected but my queries and formatting could use some help.
+* **Identificação:** Nome do sistema, Nome Amigável (Friendly Name) e Endereço MAC.
+* **Rede:** Endereços IPv4/IPv6 e suas respectivas sub-redes.
+* **Disponibilidade:** Status operacional em tempo real (Online, Offline, etc.).
 
-I saved the code as telegraf_netifinfo_plugin.go and compiled with the following commands:
+### 🌐 Métricas de Gateways:
 
-    setenv CGO_ENABLED 0
-    setenv GOOS freebsd
-    setenv GOARCH amd64
-    go build -o telegraf_netifinfo_plugin
+* **Conectividade:** IP de Monitoramento, IP de Origem e indicação de Gateway Padrão.
+* **Performance:** Atraso (Delay/RTT), Desvio Padrão (Stddev) e Percentual de Perda (Loss).
+* **Diagnóstico:** Status e Substatus detalhados (ex: Latency, Packetloss).
+
+> **Diferencial Técnico:** Este script foi migrado de Python para **PHP Nativo**, permitindo chamadas diretas à função `return_gateways_status_text` do sistema (`/etc/inc/gwlb.inc`). Isso garante que o status exibido no Grafana seja **idêntico** ao status oficial do painel do pfSense, eliminando imprecisões.
+
+---
+
+# 📉 telegraf_unbound_lite.sh
+
+#### *Nota: Este plugin não está em uso no meu sistema atual, mas permanece documentado por utilidade técnica.*
+
+Ideal para quem utiliza o **Unbound DNS** e deseja monitorar apenas métricas essenciais de performance. Ele evita a coleta excessiva de dados, economizando espaço no banco InfluxDB e otimizando o processamento.
+
+---
+
+### 💡 Dica de Integração
+
+Este conjunto de plugins é o que permite a **mágica do dashboard dinâmico**: o `telegraf_pfifgw.php` fornece os nomes das interfaces que serão rotulados como **WAN** ou **LAN** através das configurações que definimos no `additional_config.conf`.
