@@ -2,6 +2,20 @@
 
 Este projeto fornece um dashboard completo e dinâmico para monitoramento do pfSense, utilizando Telegraf para coleta de dados e InfluxDB como armazenamento.
 
+![Screenshot](Grafana-pfSense.png)
+
+---
+
+## 🚀 Versões Suportadas
+
+O projeto foi validado e está operando nas seguintes versões:
+
+* **pfSense:** 2.8.1+
+* **Grafana:** 12.4.x
+* **InfluxDB:** 1.8.3 (Versão recomendada para compatibilidade total com as queries InfluxQL do dashboard).
+
+---
+
 ## O que é Monitorado
 
 * **Sistema:** Usuários Ativos, Uptime, Carga de CPU (Total e por Núcleo), Memória RAM/SWAP e Disco.
