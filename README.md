@@ -1,206 +1,121 @@
-## What's Monitored
-- Active Users
-- Uptime
-- CPU Load total
-- Disk Utilization
-- Memory Utilization
-- CPU Utilization per core (Single Graph)
-- Ram Utilization time graph
-- Load Average
-- Load Average Graph
-- CPU and ACPI Temperature Sensors
-- pfBlocker IP Stats
-- pfBlocker DNS Stats
-- Gateway Response time - dpinger
-- List of interfaces with IPv4, IPv6, Subnet, MAC, Status and pfSense labels
-- WAN Statistics - Traffic & Throughput (Identified by dashboard variable)
-- LAN Statistics - Traffic & Throughput (Identified by dashboard variable)
-- Unbound stats - Plugin and config included and working but not implemented
+# pfSense Monitoring Stack (Grafana + InfluxDB + Telegraf)
 
-![Screenshot](Grafana-pfSense.png)
+Este projeto fornece um dashboard completo e dinâmico para monitoramento do pfSense, utilizando Telegraf para coleta de dados e InfluxDB como armazenamento.
 
-## Running on
+## O que é Monitorado
 
-    Grafana v12.4.1
-    Influxdb 1.8.3
+* **Sistema:** Usuários Ativos, Uptime, Carga de CPU (Total e por Núcleo), Memória RAM/SWAP e Disco.
+* **Saúde:** Temperaturas de CPU e sensores ACPI.
+* **Segurança:** Estatísticas de bloqueio de IP e DNS via pfBlockerNG (GeoMap incluído).
+* **Rede:** Latência de Gateways (dpinger) e estatísticas detalhadas de interfaces.
+* **Dinamismo:** Separação automática de tráfego WAN e LAN baseada em tags personalizadas.
 
-### docker-compose example with persistent storage
-##### I've recently migrated my stack to Kubernetes, the image versions are updated but the docker-compose is untested.
-```docker-compose
+---
 
-  grafana-pfSense:
-    image: "grafana/grafana:7.4.3"
-    container_name: grafana
-    hostname: grafana
-    mem_limit: 4gb
-    ports:
-      - "3000:3000"
-    environment:
-      TZ: "America/New_York"
-      GF_INSTALL_PLUGINS: "grafana-clock-panel,grafana-simple-json-datasource,grafana-piechart-panel,grafana-worldmap-panel"
-      GF_PATHS_DATA: "/var/lib/grafana"
-      GF_DEFAULT_INSTANCE_NAME: "home"
-      GF_ANALYTICS_REPORTING_ENABLED: "false"
-      GF_SERVER_ENABLE_GZIP: "true"
-      GF_SERVER_DOMAIN: "home.mydomain"
-    volumes:
-      - '/share/ContainerData/grafana:/var/lib/grafana'
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "100M"
-    network_mode: bridge
+## Configuração Rápida
 
-  influxdb-pfsense:
+### 1. Preparação no pfSense
+
+1. Instale o pacote **Telegraf** via `System -> Package Manager`.
+2. Copie os scripts da pasta `/plugins` para `/usr/local/bin/` no pfSense.
+3. Garanta as permissões de execução: `chmod 555 /usr/local/bin/telegraf_*`.
+
+### 2. Configuração do Telegraf
+
+No pfSense, vá em `Services -> Telegraf`. No campo **Custom Configuration**, utilize o conteúdo do arquivo `additional_config.conf`.
+
+**⚠️ Ajuste Obrigatório:**
+Dentro do bloco `[[processors.enum]]` no arquivo, você deve mapear suas interfaces físicas e VLANs conforme sua realidade:
+
+```toml
+[processors.enum.mapping.value_mappings]
+  "re0"     = "LAN"  # Exemplo: sua placa LAN
+  "re0.50"  = "LAN"  # Exemplo: sua VLAN de IOT
+  "pppoe0"  = "WAN"  # Exemplo: seu túnel de internet
+  "re1"     = "WAN"  # Exemplo: placa física da internet
+
+```
+
+### 3. Importação do Dashboard
+
+1. No Grafana, vá em `Dashboards -> Import`.
+2. Carregue o arquivo `Dashboard - pfSense System.json`.
+3. Selecione o seu **DataSource** do InfluxDB quando solicitado.
+
+---
+
+## Variáveis Dinâmicas
+
+O dashboard agora se auto-ajusta baseado nas tags enviadas pelo Telegraf:
+
+* **$WAN_Interfaces:** Lista tudo o que foi marcado como "WAN" no processador do Telegraf.
+* **$LAN_Interfaces:** Lista tudo o que foi marcado como "LAN", removendo automaticamente interfaces de sistema (`lo0`, `enc0`).
+
+---
+
+## Solução de Problemas (Troubleshooting)
+
+### Verificar se as tags de grupo estão funcionando
+
+Execute no shell do pfSense:
+
+```bash
+telegraf --config /usr/local/etc/telegraf.conf --test --filter-input net
+
+```
+
+**Resultado esperado:**
+`net,host=FRW010,interface=re0,interface_group=LAN bytes_recv=...`
+*(Se a tag `interface_group` não aparecer, verifique o mapeamento no `additional_config.conf` e reinicie o serviço Telegraf).*
+
+---
+
+## Executando a Stack (Docker Compose)
+
+```yaml
+services:
+  influxdb:
     image: "influxdb:1.8.3-alpine"
     container_name: influxdb
-    hostname: influxdb
-    mem_limit: 10gb
-    ports:
-      - "2003:2003"
-      - "8086:8086"
-    environment:
-      TZ: "America/New_York"
-      INFLUXDB_DATA_QUERY_LOG_ENABLED: "false"
-      INFLUXDB_REPORTING_DISABLED: "true"
-      INFLUXDB_HTTP_AUTH_ENABLED: "true"
-      INFLUXDB_ADMIN_USER: "admin"
-      INFLUXDB_ADMIN_PASSWORD: "adminpassword"
-      INFLUXDB_USER: "pfsense"
-      INFLUXDB_USER_PASSWORD: "pfsenseuserpassword"
-      INFLUXDB_DB: "pfsense"
     volumes:
-      - '/share/ContainerData/influxdb:/var/lib/influxdb'
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "100M"
-    network_mode: bridge
+      - '/seu/caminho/influxdb:/var/lib/influxdb'
+    ports:
+      - "8086:8086"
+
+  grafana:
+    image: "grafana/grafana:12.4"
+    container_name: grafana
+    environment:
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-worldmap-panel
+    volumes:
+      - '/seu/caminho/grafana:/var/lib/grafana'
+    ports:
+      - "3000:3000"
+
 ```
-   
-**Make sure you are using pfBlockerNG-devel**
 
-## Configuration
+---
 
-### Grafana
-The Config for the dashboard relies on the variables defined within the dashboard in Grafana.  When importing the dashboard, make sure to select your datasource. 
+**Tudo pronto!** 
+Com esses arquivos ajustados, qualquer alteração futura na rede (como adicionar uma nova VLAN) exigirá apenas uma edição simples no Telegraf do pfSense, sem precisar mexer no Grafana.
 
-Dashboard Settings -> Variables
+Incluí a referência ao projeto original do Victor Robellini no **README.md**, destacando que esta é uma versão aprimorada e adaptada para suporte dinâmico a interfaces e VLANs.
 
-WAN - $WAN is a static variable defined so that a separate dashboard panel can be created for WAN interfaces stats.  Use a comma-separated list for multiple WAN interfaces.
+Aqui está o bloco de créditos e referências para adicionar ao seu arquivo:
 
-LAN_Interfaces - $LAN_Interfaces uses a regex to remove any interfaces you don't want to be grouped as LAN. The filtering happens in the "Regex" field. I use a negative lookahead regex to match the interfaces I want excluded.  It should be pretty easy to understand what you need to do here. I have excluded igb0 (WAN) and igb1,igb2,igb3 (only used to host vlans).
+---
 
-After writing this up, I realize I need to change this variable name, it's just not going to happen right now. 
+## Créditos e Referências
 
-### Telegraf
-[Telegraf Config](additional_config.conf)
+Este dashboard é uma evolução baseada no excelente trabalho original de:
 
-In the [Telegraf Config](additional_config.conf) directory you will find all of the additional telegraf config. In pfSense, under Services -> Telegraf, at the bottom of the page with the teeny tiny text box is where you paste in the included config.
+* **Projeto Original:** [VictorRobellini/pfSense-Dashboard](https://github.com/VictorRobellini/pfSense-Dashboard)
+* **Funcionalidades Base:** Monitoramento funcional e útil para pfSense utilizando a stack InfluxDB, Grafana e Telegraf.
 
-I also included the config for Unbound DNS and it's commented out.  I'm not currently using it, but it's fully functional, just uncomment if you want to use it.
+### O que foi aprimorado nesta versão:
 
-### Plugins
-[Plugins](plugins)
+* **Mapeamento Dinâmico de Interfaces:** Implementação de tags de grupo (`interface_group`) via Telegraf para separar WAN e LAN automaticamente.
+* **Suporte Nativo a VLANs:** Filtros preparados para incluir sub-interfaces de forma organizada na seleção do dashboard.
+* **Automação de Hardware:** Independência de nomenclatura física de drivers (`re`, `igb`, `vtnet`), facilitando a migração entre ambientes físicos e virtuais.
 
-**Plugins get copied to your pfSense system**
-
-I put all my plugins in /usr/local/bin and set them to 555
-
-I also included a wrapper script for Unbound DNS.  I'm not currently using it, but it's fully functional.
-   
-## Troubleshooting
-
-### Telegraf Plugins
-
-- You can run most plugins from a shell/ssh session to verify the output. (the environment vars may be different when telegraf is executing the plugin)
-- The below command should display unix line endings (\n or LF) as $ and Windows line endings (\r\n or CRLF) as ^M$.
-
-`# cat -e /usr/local/bin/telegraf_pfinterface.php`
-
-#### Telegraf Troubleshooting
-If you get no good output from running the plugin directly, try the following command before moving to the below step.
-
-    # telegraf --test --config /usr/local/etc/telegraf.conf
-
-To troubleshoot plugins further, add the following lines to the agent block in /usr/local/etc/telegraf.conf and send a HUP to the telegraf pid. You're going to need to do this from a ssh shell. One you update the config you are going to need to tell telegraf to read the new configs. If you restart telegraf from pfSense, this will not work since it will overwrite your changes.
-
-#### Telegraf Config (Paste in to [agent] section)
-    debug = true
-    quiet = false
-    logfile = "/var/log/telegraf/telegraf.log"
-
-#### Restarting Telegraf
-    # ps aux | grep '[t]elegraf.conf'
-    # kill -HUP <pid of telegraf proces>
-
-Now go read /var/log/telegraf/telegraf.log
-    
-### InfluxDB
-When in doubt, run a few queries to see if the data you are looking for is being populated.
-
-    bash-4.4# influx
-    Connected to http://localhost:8086 version 1.8.3
-    InfluxDB shell version: 1.8.3
-    > auth
-    username: admin
-    password:
-    > show databases
-    name: databases
-    name
-    ----
-    pfsense
-    _internal
-    > use pfsense
-    Using database pfsense
-    > show measurements
-    name: measurements
-    name
-    ----
-    cpu
-    disk
-    diskio
-    gateways
-    interface
-    mem
-    net
-    netstat
-    pf
-    processes
-    swap
-    system
-    tail_dnsbl_log
-    tail_ip_block_log
-    temperature
-    > select * from system limit 20
-    name: system
-    time                host                     load1         load15        load5         n_cpus n_users uptime     uptime_format
-    ----                ----                     -----         ------        -----         ------ ------- ------     -------------
-    1585272640000000000 pfSense.home         0.0615234375  0.07861328125 0.0791015625  4      1       196870     2 days,  6:41
-    1585272650000000000 pfSense.home         0.05126953125 0.07763671875 0.076171875   4      1       196880     2 days,  6:41
-    1585272660000000000 pfSense.home         0.04296875    0.07666015625 0.0732421875  4      1       196890     2 days,  6:41
-    1585272670000000000 pfSense.home         0.03564453125 0.07568359375 0.0703125     4      1       196900     2 days,  6:41
-    1585272680000000000 pfSense.home         0.02978515625 0.07470703125 0.0673828125  4      1       196910     2 days,  6:41
-    1585272690000000000 pfSense.home         0.02490234375 0.07373046875 0.064453125   4      1       196920     2 days,  6:42
-    ...
-    
-
-How to drop influx measurement
-
-    bash-4.4# influx
-    Connected to http://localhost:8086 version 1.8.3
-    InfluxDB shell version: 1.8.3
-    > auth
-    username: admin
-    password:
-    > use pfsense
-    Using database pfsense
-    > drop measurement ip_block_log
-
-### TODO
-
-- Include IP and ping methods they are back online.
-- Make it pretty. I've never been good at this part
-- Get the RTT calculations right from the dpinger integration. It's in microseconds but for some reason doesn't match the graphs in pfSense when I compare them.
-- Figure out if I can show subnet and media speed/duplex for the interfaces
-- Use the pfSense labels in the graphs that show network stats - 2 different measurements
+---
