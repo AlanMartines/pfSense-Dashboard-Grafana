@@ -1,3 +1,7 @@
+Aqui está o ajuste na seção de permissões, incluindo os comandos via terminal para quem prefere ou precisa configurar via SSH/Console:
+
+---
+
 # 🚀 Guia de Instalação e Uso dos Plugins
 
 A maneira mais prática de instalar esses scripts no pfSense é através do pacote **Filer**.
@@ -6,6 +10,19 @@ Ao cadastrar um novo arquivo, especifique o caminho completo (ex: `/usr/local/bi
 
 > [!IMPORTANT]
 > **Permissões de Execução:** Defina obrigatoriamente as permissões como **`0755`**. Por padrão, o sistema utiliza `0644`, que **NÃO** permite a execução dos scripts pelo Telegraf.
+
+### Configuração via Terminal (SSH)
+
+Caso prefira realizar o ajuste de permissões manualmente pelo console, execute os seguintes comandos:
+
+```bash
+chmod 0755 /usr/local/bin/telegraf_pfifgw.php
+chmod 0755 /usr/local/bin/telegraf_temperature.sh
+# Caso utilize os demais plugins:
+chmod 0755 /usr/local/bin/telegraf_unbound_lite.sh
+chmod 0755 /usr/local/bin/telegraf_netifinfo_plugin
+
+```
 
 ---
 
@@ -42,3 +59,7 @@ Ideal para quem utiliza o **Unbound DNS** e deseja monitorar apenas métricas es
 ### 💡 Dica de Integração
 
 Este conjunto de plugins é o que permite a **mágica do dashboard dinâmico**: o `telegraf_pfifgw.php` fornece os nomes das interfaces que serão rotulados como **WAN** ou **LAN** através das configurações que definimos no `additional_config.conf`.
+
+---
+
+**Deseja que eu valide também o comando de chamada desses scripts dentro do arquivo `additional_config.conf` para garantir que o Telegraf os invoque corretamente?**
