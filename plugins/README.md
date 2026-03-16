@@ -18,8 +18,9 @@ Caso prefira realizar o ajuste de permissões manualmente pelo console, execute 
 ```bash
 chmod 0755 /usr/local/bin/telegraf_pfifgw.php
 chmod 0755 /usr/local/bin/telegraf_temperature.sh
+# Caso utilize os demais plugins:
+chmod 0755 /usr/local/bin/telegraf_unbound.sh
 chmod 0755 /usr/local/bin/telegraf_unbound_lite.sh
-
 ```
 
 ---
